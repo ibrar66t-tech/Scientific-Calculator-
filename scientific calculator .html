@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Scientific Calculator</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Configure Tailwind & Load Inter Font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        sky: {
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                        },
+                        yellow: {
+                            400: '#facc15',
+                            500: '#eab308',
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 3. Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', 'sans-serif';
+        }
+        /* Custom scrollbar for the display */
+        .display-scroller {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #0f172a;
+        }
+        .display-scroller::-webkit-scrollbar {
+            height: 4px;
+        }
+        .display-scroller::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .display-scroller::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 20px;
+        }
+        /* Tap-highlight removal */
+        button, .history-item {
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Active state for toggle buttons (2nd, hyp) */
+        .btn-toggle-active {
+            background-color: #facc15 !important; /* yellow-400 */
+            color: #1e293b !important;
+        }
+        /* History Panel transitions */
+        #history-panel {
+            transition: transform 0.3s ease-in-out;
+        }
+        #history-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-900 flex items-center justify-center p-4">
+
+    <!-- Calculator Body -->
+    <div class="max-w-md w-full mx-auto bg-slate-800 rounded-2xl shadow-2xl overflow-hidden relative">
+        
+        <!-- HISTORY PANEL (Initially Hidden) -->
+        <div id="history-overlay" class="absolute inset-0 bg-black/50 z-10 opacity-0 hidden"></div>
+        <div id="history-panel" class="absolute top-0 left-0 right-0 bg-slate-700 p-4 rounded-b-lg shadow-lg z-20 transform -translate-y-full hidden">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-semibold text-white">History</h3>
+                <button id="history-close-btn" class="text-2xl text-gray-300 hover:text-white">&times;</button>
+            </div>
+            <div id="history-list" class="max-h-64 overflow-y-auto divide-y divide-slate-600">
+                <!-- History items will be populated here -->
+                <div class="text-center text-gray-400 py-4">No history yet.</div>
+            </div>
+        </div>
+
+
+        <!-- Display Screen -->
+        <div class="p-6 bg-slate-900 rounded-t-2xl relative z-0">
+            <!-- Expression Display (Top) -->
+            <div id="expression" class="h-8 text-right text-gray-400 text-xl font-mono overflow-x-auto display-scroller whitespace-nowrap">
+                <!-- 5 + sin(90) -->
+            </div>
+            <!-- Main Display (Bottom) -->
+            <div class="flex justify-between items-end">
+                <div class="flex space-x-2 items-center">
+                    <button id="history-btn" class="text-sm text-sky-400 font-medium px-2 py-0.5 rounded-md hover:bg-slate-700 transition-colors">Hist</button>
+                    <button id="angle-mode" class="text-sm text-sky-400 font-medium px-2 py-0.5 rounded-md hover:bg-slate-700 transition-colors">Rad</button>
+                    <span id="memory-indicator" class="text-sm text-yellow-400 font-medium hidden">M</span>
+                    <span id="hyp-indicator" class="text-sm text-yellow-400 font-medium hidden">HYP</span>
+                </div>
+                <div id="display" class="h-16 text-right text-white text-5xl font-sans font-bold overflow-x-auto display-scroller whitespace-nowrap">
+                    0
+                </div>
+            </div>
+        </div>
+
+        <!-- Button Grid -->
+        <div id="buttons-container" class="grid grid-cols-5 gap-2 p-4">
+            <!-- Row 1: Shift, Hyp, Trig -->
+            <button id="btn-shift" data-value="shift" class="btn-shift">2nd</button>
+            <button id="btn-hyp" data-value="hyp" class="btn-shift">hyp</button>
+            <button data-value="sin" class="btn-sci">
+                <span class="btn-label-normal">sin</span>
+                <span class="btn-label-shift hidden">sin⁻¹</span>
+            </button>
+            <button data-value="cos" class="btn-sci">
+                <span class="btn-label-normal">cos</span>
+                <span class="btn-label-shift hidden">cos⁻¹</span>
+            </button>
+            <button data-value="tan" class="btn-sci">
+                <span class="btn-label-normal">tan</span>
+                <span class="btn-label-shift hidden">tan⁻¹</span>
+            </button>
+
+            <!-- Row 2: Powers, Logs, Parens -->
+            <button data-value="pow" class="btn-sci">
+                <span class="btn-label-normal">x<sup class="text-sm">y</sup></span>
+                <span class="btn-label-shift hidden"><sup class="text-sm">y</sup>√x</span>
+            </button>
+            <button data-value="log" class="btn-sci">
+                <span class="btn-label-normal">log</span>
+                <span class="btn-label-shift hidden">10<sup class="text-sm">x</sup></span>
+            </button>
+            <button data-value="ln" class="btn-sci">
+                <span class="btn-label-normal">ln</span>
+                <span class="btn-label-shift hidden">e<sup class="text-sm">x</sup></span>
+            </button>
+            <button data-value="open-paren" class="btn-sci">
+                <span class="btn-label-normal">(</span>
+                <span class="btn-label-shift hidden">π</span>
+            </button>
+            <button data-value="close-paren" class="btn-sci">
+                <span class="btn-label-normal">)</span>
+                <span class="btn-label-shift hidden">e</span>
+            </button>
+
+            <!-- Row 3: Roots, Factorial, Inverse -->
+            <button data-value="sqrt" class="btn-sci">
+                <span class="btn-label-normal">√</span>
+                <span class="btn-label-shift hidden">³√</span>
+            </button>
+            <button data-value="sq" class="btn-sci">
+                <span class="btn-label-normal">x²</span>
+                <span class="btn-label-shift hidden">x³</span>
+            </button>
+            <button data-value="factorial" class="btn-sci">n!</button>
+            <button data-value="inv" class="btn-sci">1/x</button>
+            <button data-value="backspace" class="btn-op">⌫</button>
+
+            <!-- Row 4: Memory -->
+            <button data-value="mc" class="btn-mem">MC</button>
+            <button data-value="mr" class="btn-mem">MR</button>
+            <button data-value="m-plus" class="btn-mem">M+</button>
+            <button data-value="m-minus" class="btn-mem">M-</button>
+            <button data-value="ms" class="btn-mem">MS</button>
+
+            <!-- Row 5: 7-9, Clear -->
+            <button data-value="7" class="btn-num">7</button>
+            <button data-value="8" class="btn-num">8</button>
+            <button data-value="9" class="btn-num">9</button>
+            <button data-value="clear-entry" class="btn-clear text-lg">CE</button>
+            <button data-value="clear" class="btn-clear text-lg">AC</button>
+            
+            <!-- Row 6: 4-6, Operators -->
+            <button data-value="4" class="btn-num">4</button>
+            <button data-value="5" class="btn-num">5</button>
+            <button data-value="6" class="btn-num">6</button>
+            <button data-value="*" class="btn-op">×</button>
+            <button data-value="/" class="btn-op">÷</button>
+
+            <!-- Row 7: 1-3, Operators -->
+            <button data-value="1" class="btn-num">1</button>
+            <button data-value="2" class="btn-num">2</button>
+            <button data-value="3" class="btn-num">3</button>
+            <button data-value="+" class="btn-op">+</button>
+            <button data-value="-" class="btn-op">−</button>
+            
+            <!-- Row 8: 0, Decimal, Equals -->
+            <button data-value="0" class="btn-num col-span-2">0</button>
+            <button data-value="." class="btn-num">.</button>
+            <button data-value="toggle-sign" class="btn-num">+/-</button>
+            <button data-value="equals" class="btn-equals">=</button>
+        </div>
+    </div>
+
+    <!-- 4. Main Application Logic -->
+    <script defer>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const displayEl = document.getElementById('display');
+            const expressionEl = document.getElementById('expression');
+            const buttonsContainer = document.getElementById('buttons-container');
+            const angleModeBtn = document.getElementById('angle-mode');
+            const shiftBtn = document.getElementById('btn-shift');
+            const hypBtn = document.getElementById('btn-hyp');
+            const memoryIndicator = document.getElementById('memory-indicator');
+            const hypIndicator = document.getElementById('hyp-indicator');
+            // History Elements
+            const historyBtn = document.getElementById('history-btn');
+            const historyPanel = document.getElementById('history-panel');
+            const historyOverlay = document.getElementById('history-overlay');
+            const historyCloseBtn = document.getElementById('history-close-btn');
+            const historyList = document.getElementById('history-list');
+
+            // --- State Variables ---
+            let currentInput = '0';
+            let expression = '';
+            let isResultShown = false;
+            let angleMode = 'rad'; // 'rad', 'deg', 'grad'
+            let isShiftActive = false;
+            let isHypActive = false;
+            let memory = 0;
+            let history = [];
+
+            // --- Primary Functions ---
+
+            function updateDisplay() {
+                displayEl.textContent = formatNumber(currentInput);
+                expressionEl.textContent = expression;
+                // Update indicators
+                memoryIndicator.classList.toggle('hidden', memory === 0);
+                hypIndicator.classList.toggle('hidden', !isHypActive);
+            }
+
+            function formatNumber(numStr) {
+                // (Same as before)
+                if (numStr === 'Error' || numStr === 'Infinity') return numStr;
+                try {
+                    const num = parseFloat(numStr);
+                    if (String(num).length > 15) {
+                         if (Math.abs(num) > 1e10 || (Math.abs(num) < 1e-6 && num !== 0)) {
+                             return num.toExponential(6);
+                         }
+                         return parseFloat(num.toFixed(10)).toString();
+                    }
+                    return numStr;
+                } catch(e) {
+                    return numStr;
+                }
+            }
+            
+            // --- Event Listeners ---
+
+            // Angle Mode Button
+            angleModeBtn.addEventListener('click', () => {
+                if (angleMode === 'rad') angleMode = 'deg';
+                else if (angleMode === 'deg') angleMode = 'grad';
+                else angleMode = 'rad';
+                angleModeBtn.textContent = angleMode.charAt(0).toUpperCase() + angleMode.slice(1);
+            });
+
+            // Main Button Grid
+            buttonsContainer.addEventListener('click', (event) => {
+                const button = event.target.closest('button');
+                if (!button) return;
+
+                const value = button.dataset.value;
+
+                // If a result is shown, a new number click should start a new calculation
+                if (isResultShown && (value >= '0' && value <= '9')) {
+                    clearAll();
+                }
+                isResultShown = false;
+
+                // Handle button click logic
+                handleButton(value);
+                
+                // Reset shift after one use
+                if (isShiftActive && value !== 'shift') {
+                    toggleShift(false);
+                }
+                
+                updateDisplay();
+            });
+            
+            // --- Handlers ---
+
+            function handleButton(value) {
+                switch (value) {
+                    // Numbers
+                    case '0': case '1': case '2': case '3': case '4':
+                    case '5': case '6': case '7': case '8': case '9':
+                        handleNumber(value);
+                        break;
+                    case '.':
+                        handleDecimal();
+                        break;
+                    
+                    // Basic Operators
+                    case '+': case '-': case '*': case '/':
+                        handleOperator(value);
+                        break;
+                    
+                    // --- Scientific ---
+                    case 'shift':
+                        toggleShift();
+                        break;
+                    case 'hyp':
+                        toggleHyp();
+                        break;
+                    case 'sin':
+                        handleFunction(getTrigFunction('sin'));
+                        break;
+                    case 'cos':
+                        handleFunction(getTrigFunction('cos'));
+                        break;
+                    case 'tan':
+                        handleFunction(getTrigFunction('tan'));
+                        break;
+                    case 'pow':
+                        handleOperator(isShiftActive ? ' nroot ' : ' ^ ');
+                        break;
+                    case 'log':
+                        handleFunction(isShiftActive ? '10^' : 'log');
+                        break;
+                    case 'ln':
+                        handleFunction(isShiftActive ? 'e^' : 'ln');
+                        break;
+                    case 'sqrt':
+                        handleFunction(isShiftActive ? 'cbrt' : 'sqrt');
+                        break;
+                    case 'sq':
+                        handleImmediateOp(isShiftActive ? val => Math.pow(val, 3) : val => Math.pow(val, 2));
+                        break;
+                    case 'factorial':
+                        handleImmediateOp(factorial);
+                        break;
+                    case 'inv':
+                        handleImmediateOp(val => 1 / val);
+                        break;
+
+                    // Parentheses & Constants
+                    case 'open-paren':
+                        isShiftActive ? handleConstant('Math.PI', 'π') : handleOpenParen();
+                        break;
+                    case 'close-paren':
+                        isShiftActive ? handleConstant('Math.E', 'e') : handleCloseParen();
+                        break;
+
+                    // Memory
+                    case 'mc': memory = 0; break;
+                    case 'mr': currentInput = String(memory); break;
+                    case 'ms': memory = parseFloat(currentInput) || 0; break;
+                    case 'm-plus': memory += parseFloat(currentInput) || 0; break;
+                    case 'm-minus': memory -= parseFloat(currentInput) || 0; break;
+                    
+                    // Control
+                    case 'toggle-sign': handleToggleSign(); break;
+                    case 'equals': handleEquals(); break;
+                    case 'clear': clearAll(); break;
+                    case 'clear-entry': clearEntry(); break;
+                    case 'backspace': handleBackspace(); break;
+                }
+            }
+
+            function getTrigFunction(base) {
+                if (isShiftActive) { // Inverse
+                    return isHypActive ? `a${base}h` : `a${base}`; // asinh, acosh, atanh | asin, acos, atan
+                } else { // Regular
+                    return isHypActive ? `${base}h` : base; // sinh, cosh, tanh | sin, cos, tan
+                }
+            }
+
+            function handleNumber(num) {
+                if (currentInput === '0' || currentInput === 'Error') {
+                    currentInput = num;
+                } else {
+                    currentInput += num;
+                }
+            }
+
+            function handleDecimal() {
+                if (!currentInput.includes('.')) {
+                    currentInput += '.';
+                }
+            }
+            
+            function handleOperator(op) {
+                if (currentInput === 'Error') return;
+                const opStr = ` ${op.trim()} `;
+                expression += currentInput + opStr;
+                currentInput = '0';
+            }
+
+            function handleFunction(func) {
+                if (currentInput === 'Error') return;
+                
+                const applyNow = ['10^', 'e^', 'sqrt', 'cbrt', 'asin', 'acos', 'atan', 'asinh', 'acosh', 'atanh'];
+                
+                if ((currentInput !== '0' && currentInput !== '') || applyNow.includes(func)) {
+                    expression += `${func}(${currentInput})`;
+                    currentInput = '0';
+                } else {
+                    expression += func + '(';
+                }
+            }
+            
+            function handleOpenParen() {
+                if (currentInput === '0' || currentInput === '') {
+                     expression += '(';
+                } else {
+                    expression += currentInput + ' * (';
+                    currentInput = '0';
+                }
+            }
+
+            function handleCloseParen() {
+                 expression += currentInput + ')';
+                 currentInput = '0';
+            }
+
+            function handleConstant(constValue, constSymbol) {
+                 currentInput = String(eval(constValue));
+                 // Optionally add symbol to expression if it's clear
+                 if (expression === '' && currentInput !== '0') {
+                    // This is a bit tricky, let's just set the current input
+                 }
+            }
+            
+            function handleImmediateOp(operation) {
+                if (currentInput === 'Error') return;
+                try {
+                    const value = parseFloat(currentInput);
+                    const result = operation(value);
+                    if (isNaN(result) || !isFinite(result)) {
+                         throw new Error('Invalid calculation');
+                    }
+                    currentInput = String(result);
+                    isResultShown = true;
+                } catch(e) {
+                    currentInput = 'Error';
+                    isResultShown = true;
+                }
+            }
+
+            function handleToggleSign() {
+                if (currentInput !== '0' && currentInput !== 'Error') {
+                    currentInput = String(parseFloat(currentInput) * -1);
+                }
+            }
+
+            function clearAll() {
+                currentInput = '0';
+                expression = '';
+                isResultShown = false;
+                // Don't reset angleMode, hyp, or memory
+            }
+
+            function clearEntry() {
+                currentInput = '0';
+                isResultShown = false;
+            }
+
+            function handleBackspace() {
+                if (isResultShown || currentInput === 'Error') {
+                    clearEntry();
+                    return;
+                }
+                if (currentInput.length > 1) {
+                    currentInput = currentInput.slice(0, -1);
+                } else {
+                    currentInput = '0';
+                }
+            }
+
+            function toggleShift(forceState = null) {
+                isShiftActive = forceState !== null ? forceState : !isShiftActive;
+                shiftBtn.classList.toggle('btn-toggle-active', isShiftActive);
+                
+                document.querySelectorAll('.btn-label-normal').forEach(label => label.classList.toggle('hidden', isShiftActive));
+                document.querySelectorAll('.btn-label-shift').forEach(label => label.classList.toggle('hidden', !isShiftActive));
+            }
+
+            function toggleHyp(forceState = null) {
+                isHypActive = forceState !== null ? forceState : !isHypActive;
+                hypBtn.classList.toggle('btn-toggle-active', isHypActive);
+            }
+
+            // --- Calculation Helpers ---
+            
+            function factorial(n) {
+                // (Same as before)
+                if (n < 0 || n !== Math.floor(n)) throw new Error('Factorial is for non-negative integers only');
+                if (n === 0 || n === 1) return 1;
+                if (n > 170) return Infinity; 
+                let result = 1;
+                for (let i = 2; i <= n; i++) {
+                    result *= i;
+                }
+                return result;
+            }
+
+            function convertAngle(value, from, to) {
+                // (Same as before)
+                if (from === to) return value;
+                let rad;
+                if (from === 'deg') rad = value * (Math.PI / 180);
+                else if (from === 'grad') rad = value * (Math.PI / 200);
+                else rad = value; 
+
+                if (to === 'deg') return rad * (180 / Math.PI);
+                if (to === 'grad') return rad * (200 / Math.PI);
+                return rad;
+            }
+            
+            function addToHistory(expr, res) {
+                // Add to start of array
+                history.unshift({ expression: expr, result: res });
+                // Limit history size
+                if (history.length > 50) {
+                    history.pop();
+                }
+            }
+
+            function handleEquals() {
+                if (currentInput === 'Error') return;
+                
+                let fullExpr = (expression + currentInput).trim();
+                
+                try {
+                    // --- Evaluation ---
+                    let evalExpr = fullExpr
+                        .replace(/π/g, 'Math.PI')
+                        .replace(/e/g, 'Math.E')
+                        .replace(/×/g, '*')
+                        .replace(/÷/g, '/')
+                        .replace(/\^/g, '**')
+                        .replace(/(\S+)\s+nroot\s+(\S+)/g, 'Math.pow($2, 1 / $1)')
+                        .replace(/log\(/g, 'Math.log10(')
+                        .replace(/ln\(/g, 'Math.log(')
+                        .replace(/sqrt\(/g, 'Math.sqrt(')
+                        .replace(/cbrt\(/g, 'Math.cbrt(')
+                        .replace(/10\^\(/g, 'Math.pow(10,')
+                        .replace(/e\^\(/g, 'Math.exp(')
+                        // Simple replacements for our scoped functions
+                        .replace(/sin\(/g, 'sin(')
+                        .replace(/cos\(/g, 'cos(')
+                        .replace(/tan\(/g, 'tan(')
+                        .replace(/asin\(/g, 'asin(')
+                        .replace(/acos\(/g, 'acos(')
+                        .replace(/atan\(/g, 'atan(')
+                        .replace(/sinh\(/g, 'sinh(')
+                        .replace(/cosh\(/g, 'cosh(')
+                        .replace(/tanh\(/g, 'tanh(')
+                        .replace(/asinh\(/g, 'asinh(')
+                        .replace(/acosh\(/g, 'acosh(')
+                        .replace(/atanh\(/g, 'atanh(');
+
+                    // --- Define all functions for the Function constructor ---
+                    // This is the safest way to handle angle modes and complex functions
+                    
+                    // Trig
+                    const sin = (val) => Math.sin(convertAngle(val, angleMode, 'rad'));
+                    const cos = (val) => Math.cos(convertAngle(val, angleMode, 'rad'));
+                    const tan = (val) => Math.tan(convertAngle(val, angleMode, 'rad'));
+                    // Inverse Trig
+                    const asin = (val) => convertAngle(Math.asin(val), 'rad', angleMode);
+                    const acos = (val) => convertAngle(Math.acos(val), 'rad', angleMode);
+                    const atan = (val) => convertAngle(Math.atan(val), 'rad', angleMode);
+                    // Hyperbolic
+                    const sinh = (val) => Math.sinh(convertAngle(val, angleMode, 'rad'));
+                    const cosh = (val) => Math.cosh(convertAngle(val, angleMode, 'rad'));
+                    const tanh = (val) => Math.tanh(convertAngle(val, angleMode, 'rad'));
+                    // Inverse Hyperbolic
+                    const asinh = (val) => convertAngle(Math.asinh(val), 'rad', angleMode);
+                    const acosh = (val) => convertAngle(Math.acosh(val), 'rad', angleMode);
+                    const atanh = (val) => convertAngle(Math.atanh(val), 'rad', angleMode);
+
+                    // 3. Use Function constructor for a safer evaluation
+                    const result = new Function(
+                        'sin', 'cos', 'tan', 'asin', 'acos', 'atan',
+                        'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
+                        'return ' + evalExpr
+                    )(
+                        sin, cos, tan, asin, acos, atan,
+                        sinh, cosh, tanh, asinh, acosh, atanh
+                    );
+
+                    if (isNaN(result) || !isFinite(result)) {
+                        throw new Error('Invalid calculation');
+                    }
+                    
+                    currentInput = String(result);
+                    expression = fullExpr + ' =';
+                    isResultShown = true;
+                    
+                    // Add to history
+                    addToHistory(fullExpr, currentInput);
+
+                } catch (error) {
+                    console.error("Calculation Error:", error.message, "Expr:", fullExpr);
+                    currentInput = 'Error';
+                    expression = '';
+                    isResultShown = true;
+                }
+            }
+
+            // --- History Panel Logic ---
+            
+            function showHistory() {
+                historyList.innerHTML = ''; // Clear old list
+                if (history.length === 0) {
+                    historyList.innerHTML = '<div class="text-center text-gray-400 py-4">No history yet.</div>';
+                } else {
+                    history.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item p-2 cursor-pointer rounded-md hover:bg-slate-600';
+                        div.innerHTML = `
+                            <div class="text-gray-300 text-sm truncate">${item.expression}</div>
+                            <div class="text-white text-lg font-semibold truncate">${item.result}</div>
+                        `;
+                        // Add listeners to re-use values
+                        div.addEventListener('click', (e) => {
+                            // Click on result (bottom part)
+                            if (e.target.closest('.text-lg')) {
+                                currentInput = item.result;
+                                expression = '';
+                            } else { // Click on expression (top part)
+                                expression = item.expression;
+                                currentInput = '0';
+                            }
+                            hideHistory();
+                            updateDisplay();
+                        });
+                        historyList.appendChild(div);
+                    });
+                }
+                
+                historyOverlay.classList.remove('hidden');
+                historyPanel.classList.remove('hidden');
+                // Use requestAnimationFrame for smooth CSS transition
+                requestAnimationFrame(() => {
+                    historyOverlay.classList.remove('opacity-0');
+                    historyPanel.style.transform = 'translateY(0)';
+                });
+            }
+
+            function hideHistory() {
+                historyOverlay.classList.add('opacity-0');
+                historyPanel.style.transform = 'translateY(-100%)';
+                // Hide after transition
+                setTimeout(() => {
+                    historyOverlay.classList.add('hidden');
+                    historyPanel.classList.add('hidden');
+                }, 300);
+            }
+            
+            historyBtn.addEventListener('click', showHistory);
+            historyCloseBtn.addEventListener('click', hideHistory);
+            historyOverlay.addEventListener('click', hideHistory);
+
+
+            // --- Apply Tailwind classes dynamically ---
+            document.querySelectorAll('button').forEach(btn => {
+                const baseStyle = 'py-4 text-xl font-semibold rounded-lg transition duration-200 ease-in-out transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-opacity-70';
+                
+                if (btn.classList.contains('btn-num')) {
+                    btn.className = `${baseStyle} bg-slate-700 hover:bg-slate-600 text-white focus:ring-sky-400`;
+                } else if (btn.classList.contains('btn-op')) {
+                    btn.className = `${baseStyle} bg-sky-600 hover:bg-sky-500 text-white focus:ring-sky-300 text-2xl`;
+                } else if (btn.classList.contains('btn-sci')) {
+                    btn.className = `${baseStyle} bg-slate-700/70 hover:bg-slate-700 text-sky-300 focus:ring-sky-400 text-lg`;
+                } else if (btn.classList.contains('btn-clear')) {
+                    btn.className = `${baseStyle} bg-red-600/80 hover:bg-red-600 text-white focus:ring-red-400 text-lg`;
+                } else if (btn.classList.contains('btn-equals')) {
+                    btn.className = `${baseStyle} bg-sky-500 hover:bg-sky-400 text-white focus:ring-sky-200 text-2xl`;
+                } else if (btn.classList.contains('btn-shift')) {
+                    btn.className = `${baseStyle} bg-yellow-500/80 hover:bg-yellow-500 text-slate-900 focus:ring-yellow-300 text-lg`;
+                } else if (btn.classList.contains('btn-mem')) {
+                    btn.className = `${baseStyle} bg-slate-700/70 hover:bg-slate-700 text-yellow-400 focus:ring-yellow-400 text-lg`;
+                }
+                
+                if(btn.classList.contains('col-span-2')) {
+                    btn.classList.add('col-span-2');
+                }
+            });
+
+            // Initial display update
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>
+
+
